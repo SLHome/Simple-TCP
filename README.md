@@ -3,31 +3,29 @@ Simple-TCP
 
 A simple, cross-platform HTTP and SMTP client library implemented using C++11 and Boost.Asio.
 
-This project was forked from [eidheim/Simple-Web-Server](https://github.com/eidheim/Simple-Web-Server), and the HTTP client library was refractored to extract the underlying TCP protocol for use with SMTP.
+This project was forked from [eidheim/Simple-Web-Server](https://github.com/eidheim/Simple-Web-Server), and the HTTP client library was refractored to extract the underlying TCP protocol for use with SMTP.  The primary aim of this project is to make an SMTP client based on Boost.Asio.  As an added benefit, the SMTP and HTTP clients run on the same Boost.Asio and TCP client code, which may make maintenence and debugging easier.
 
-*Everything below this sentence has not been updated.*
+Note: It would be possible to build upon the TCP client to make an FTP/FTPS client (feel free to send a PR if you have done that).
 
-### Features
+### Features (when complete)
 
-* Asynchronous request handling
-* Thread pool if needed
 * Platform independent
-* HTTPS support
+* SMTPS and HTTPS support
 * HTTP persistent connection (for HTTP/1.1)
-* Client supports chunked transfer encoding
-* Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
-* Simple way to add REST resources using regex for path, and anonymous functions
+* Supports chunked transfer encoding
+* Timeouts
+* HTML emails
 
 ### Usage
 
-See http_examples.cpp or https_examples.cpp for example usage. 
+See smtp_examples.cpp, smtps_examples.cpp, http_examples.cpp, https_examples.cpp for example usage.
 
-See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
+Note that you will need to replace the "To:" parameter with your own email to receive the messages.
 
 ### Dependencies
 
 * Boost C++ libraries
-* For HTTPS: OpenSSL libraries 
+* For SMTPS/HTTPS: OpenSSL libraries 
 
 ### Compile and run
 
@@ -39,6 +37,8 @@ cmake ..
 make
 cd ..
 ```
+
+*Everything below this sentence has not been updated.*
 
 #### HTTP
 
