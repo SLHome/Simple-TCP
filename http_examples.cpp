@@ -1,4 +1,7 @@
+//#define BOOST_ASIO_ENABLE_HANDLER_TRACKING
+
 #include "server_http.hpp"
+#include "simple_client_http.hpp"
 #include "client_http.hpp"
 
 //Added for the json-example
@@ -20,7 +23,8 @@ using namespace std;
 using namespace boost::property_tree;
 
 typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
-typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
+typedef SimpleTCP::HTTPClient<SimpleTCP::DefaultConfig> HttpClient;
+//typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 //Added for the default_resource example
 void default_resource_send(const HttpServer &server, const shared_ptr<HttpServer::Response> &response,
