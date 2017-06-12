@@ -176,7 +176,6 @@ namespace SimpleTCP {
 			
 			connect();
 
-
 			boost::asio::deadline_timer timer(io_service);
 			make_and_start_timeout_timer(timer);
 			boost::asio::async_write(*socket, std::forward<Buffer>(buffer),
@@ -194,6 +193,9 @@ namespace SimpleTCP {
 
 		template <typename Buffer>
 		void receive(Buffer& buffer) {
+			
+			connect();
+
 			boost::asio::deadline_timer timer(io_service);
 			make_and_start_timeout_timer(timer);
 			boost::asio::async_read(*socket, buffer,
@@ -211,6 +213,9 @@ namespace SimpleTCP {
 
 		template <typename Buffer>
 		size_t receive_until(Buffer& buffer, const std::string& delim) {
+
+			connect();
+
 			boost::asio::deadline_timer timer(io_service);
 			make_and_start_timeout_timer(timer);
 			size_t ret = 0;
@@ -231,6 +236,9 @@ namespace SimpleTCP {
 
 		template <typename Buffer>
 		size_t receive_exactly(Buffer& buffer, const size_t count) {
+
+			connect();
+
 			boost::asio::deadline_timer timer(io_service);
 			make_and_start_timeout_timer(timer);
 			size_t ret = 0;
