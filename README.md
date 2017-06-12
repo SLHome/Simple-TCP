@@ -1,9 +1,11 @@
-Simple-Web-Server [![Build Status](https://travis-ci.org/eidheim/Simple-Web-Server.svg?branch=master)](https://travis-ci.org/eidheim/Simple-Web-Server)
+Simple-TCP
 =================
 
-A very simple, fast, multithreaded, platform independent HTTP and HTTPS server and client library implemented using C++11 and Boost.Asio. Created to be an easy way to make REST resources available from C++ applications. 
+A simple, cross-platform HTTP and SMTP client library implemented using C++11 and Boost.Asio.
 
-See https://github.com/eidheim/Simple-WebSocket-Server for an easy way to make WebSocket/WebSocket Secure endpoints in C++. Also, feel free to check out the new C++ IDE supporting C++11/14/17: https://github.com/cppit/jucipp. 
+This project was forked from [eidheim/Simple-Web-Server](https://github.com/eidheim/Simple-Web-Server), and the HTTP client library was refractored to extract the underlying TCP protocol for use with SMTP.
+
+*Everything below this sentence has not been updated.*
 
 ### Features
 
