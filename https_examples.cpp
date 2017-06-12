@@ -1,5 +1,6 @@
 #include "server_https.hpp"
-#include "client_https.hpp"
+//#include "client_https.hpp"
+#include "simple_client_https.hpp"
 
 //Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -18,7 +19,8 @@ using namespace std;
 using namespace boost::property_tree;
 
 typedef SimpleWeb::Server<SimpleWeb::HTTPS> HttpsServer;
-typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
+//typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
+typedef SimpleTCP::HTTPClient<SimpleTCP::SecureConfig> HttpsClient;
 
 //Added for the default_resource example
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
@@ -28,7 +30,7 @@ int main() {
     //HTTPS-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
     //1 thread is usually faster than several threads
-    HttpsServer server("server.crt", "server.key");
+    HttpsServer server(R"(D:\Bernard\Documents\SSL\cacert.pem)", R"(D:\Bernard\Documents\SSL\private\cakey.pem)");
     server.config.port=8080;
     
     //Add resources using path-regex and method-string, and an anonymous function
@@ -169,7 +171,7 @@ int main() {
     
     //Client examples
     //Second Client() parameter set to false: no certificate verification
-    HttpsClient client("localhost:8080", false);
+	HttpsClient client("localhost:8080", SimpleTCP::SecureConfig{ false });
     auto r1=client.request("GET", "/match/123");
     cout << r1->content.rdbuf() << endl;
 

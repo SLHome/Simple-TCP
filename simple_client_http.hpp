@@ -45,6 +45,33 @@ namespace SimpleTCP {
 			std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
 
 		private:
+			inline void parse_header() {
+				std::string line;
+				getline(this->content, line);
+				size_t version_end = line.find(' ');
+				if (version_end != std::string::npos) {
+					if (5<line.size())
+						this->http_version = line.substr(5, version_end - 5);
+					if ((version_end + 1)<line.size())
+						this->status_code = line.substr(version_end + 1, line.size() - (version_end + 1) - 1);
+
+					getline(this->content, line);
+					size_t param_end;
+					while ((param_end = line.find(':')) != std::string::npos) {
+						size_t value_start = param_end + 1;
+						if ((value_start)<line.size()) {
+							if (line[value_start] == ' ')
+								value_start++;
+							if (value_start<line.size())
+								this->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
+						}
+
+						getline(this->content, line);
+					}
+				}
+			}
+
+		private:
 			boost::asio::streambuf content_buffer;
 
 			Response() : content(&content_buffer) {}
@@ -91,40 +118,16 @@ namespace SimpleTCP {
 			return request_read(client);
 		}
 	private:
-		inline void parse_response_header(const std::shared_ptr<Response> &response) const {
-			std::string line;
-			getline(response->content, line);
-			size_t version_end = line.find(' ');
-			if (version_end != std::string::npos) {
-				if (5<line.size())
-					response->http_version = line.substr(5, version_end - 5);
-				if ((version_end + 1)<line.size())
-					response->status_code = line.substr(version_end + 1, line.size() - (version_end + 1) - 1);
-
-				getline(response->content, line);
-				size_t param_end;
-				while ((param_end = line.find(':')) != std::string::npos) {
-					size_t value_start = param_end + 1;
-					if ((value_start)<line.size()) {
-						if (line[value_start] == ' ')
-							value_start++;
-						if (value_start<line.size())
-							response->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
-					}
-
-					getline(response->content, line);
-				}
-			}
-		}
+		
 		std::shared_ptr<Response> request_read(Client &client) {
-			std::shared_ptr<Response> response = std::shared_ptr<Response>(new Response()); // due to friend function, the raw pointer has to be exposed.
+			std::shared_ptr<Response> response(new Response()); // due to friend function, the raw pointer has to be exposed.
 
 			size_t bytes_transferred = client.receive_until(response->content_buffer, "\r\n\r\n");
 
 			size_t num_additional_bytes = response->content_buffer.size() - bytes_transferred;
 
 
-			parse_response_header(response);
+			response->parse_header();
 
 			auto header_it = response->header.find("Content-Length");
 			if (header_it != response->header.end()) {
@@ -182,4 +185,6 @@ namespace SimpleTCP {
 
 	template <typename Config>
 	using HTTPClient = HTTPProcessor<TCPClient<Config>>;
+
+	typedef HTTPClient<DefaultConfig> DefaultHTTPClient;
 }

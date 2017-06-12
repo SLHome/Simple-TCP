@@ -4,6 +4,7 @@
 #include <utility>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <cstdint>
 #include <cstdlib>
 
@@ -12,6 +13,56 @@
 #include "net_utils.hpp"
 
 namespace SimpleTCP {
+	struct DefaultTransporter {
+		typedef boost::asio::ip::tcp::socket socket_type;
+		template <typename Client>
+		void init(Client&) const {}
+		template <typename Client>
+		void connect(Client& client) const {
+			if (!client.socket || !client.socket->is_open()) {
+				std::unique_ptr<boost::asio::ip::tcp::resolver::query> query;
+				if (!client.config.has_proxy_server()) {
+					query = std::make_unique<boost::asio::ip::tcp::resolver::query>(client.host, std::to_string(client.port));
+				}
+				else {
+					auto proxy_host_port = parse_host_port(client.config.proxy_server(), 8080);
+					query = std::make_unique<boost::asio::ip::tcp::resolver::query>(proxy_host_port.first, std::to_string(proxy_host_port.second));
+				}
+				boost::asio::deadline_timer timer(client.io_service);
+				client.resolver.async_resolve(*query, [&client, &timer](const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it) {
+					if (!ec) {
+						{
+							std::lock_guard<std::mutex> lock(client.socket_mutex);
+							client.socket = std::make_unique<socket_type>(client.io_service);
+						}
+
+
+						client.make_and_start_timeout_connect_timer(timer);
+						boost::asio::async_connect(*(client.socket), it, [&client, &timer](const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/) {
+							timer.cancel();
+							if (!ec) {
+								boost::asio::ip::tcp::no_delay option(true);
+								client.socket->set_option(option);
+							}
+							else {
+								std::lock_guard<std::mutex> lock(client.socket_mutex);
+								client.socket = nullptr;
+								throw boost::system::system_error(ec);
+							}
+						});
+					}
+					else {
+						std::lock_guard<std::mutex> lock(client.socket_mutex);
+						client.socket = nullptr;
+						throw boost::system::system_error(ec);
+					}
+				});
+				client.io_service.reset();
+				client.io_service.run();
+			}
+		}
+	};
+	
 	class DefaultConfig {
 	public:
 		/// Set timeout on requests in seconds. Default value: 0 (no timeout). 
@@ -29,12 +80,20 @@ namespace SimpleTCP {
 		constexpr bool has_proxy_server() const noexcept {
 			return false;
 		}
+		typedef DefaultTransporter transporter_type;
+		const transporter_type& get_transporter() const noexcept {
+			return transporter_type{};
+		}
 	};
+
 	
 	template <typename Config = DefaultConfig>
 	class TCPClient {
+		friend class Config::transporter_type;
+
 	public:
-		typedef boost::asio::ip::tcp::socket socket_type;
+		typedef typename Config::transporter_type transporter_type;
+		typedef typename transporter_type::socket_type socket_type;
 		typedef Config config_type;
 
 		
@@ -65,12 +124,14 @@ namespace SimpleTCP {
 		}
 
 	public:
-		TCPClient(const std::string& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(config) {
+		TCPClient(const std::string& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
 			std::tie(host, port) = parse_host_port(host_port, default_port);
+			config.get_transporter().init(*this);
 		}
 
-		TCPClient(std::string&& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(config) {
+		TCPClient(std::string&& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
 			std::tie(host, port) = parse_host_port(std::move(host_port), default_port);
+			config.get_transporter().init(*this);
 		}
 
 		TCPClient(const TCPClient& client) = delete;
@@ -106,47 +167,7 @@ namespace SimpleTCP {
 		}
 
 		void connect() {
-			if (!socket || !socket->is_open()) {
-				std::unique_ptr<boost::asio::ip::tcp::resolver::query> query;
-				if (!config.has_proxy_server()) {
-					query = std::make_unique<boost::asio::ip::tcp::resolver::query>(host, std::to_string(port));
-				}
-				else {
-					auto proxy_host_port = parse_host_port(config.proxy_server(), 8080);
-					query = std::make_unique<boost::asio::ip::tcp::resolver::query>(proxy_host_port.first, std::to_string(proxy_host_port.second));
-				}
-				boost::asio::deadline_timer timer(io_service);
-				resolver.async_resolve(*query, [this, &timer](const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it) {
-					if (!ec) {
-						{
-							std::lock_guard<std::mutex> lock(socket_mutex);
-							socket = std::make_unique<socket_type>(io_service);
-						}
-
-						
-						make_and_start_timeout_connect_timer(timer);
-						boost::asio::async_connect(*socket, it, [this, &timer] (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/) {
-							timer.cancel();
-							if (!ec) {
-								boost::asio::ip::tcp::no_delay option(true);
-								this->socket->set_option(option);
-							}
-							else {
-								std::lock_guard<std::mutex> lock(socket_mutex);
-								this->socket = nullptr;
-								throw boost::system::system_error(ec);
-							}
-						});
-					}
-					else {
-						std::lock_guard<std::mutex> lock(socket_mutex);
-						socket = nullptr;
-						throw boost::system::system_error(ec);
-					}
-				});
-				io_service.reset();
-				io_service.run();
-			}
+			config.get_transporter().connect(*this);
 		}
 
 	public:
@@ -234,4 +255,6 @@ namespace SimpleTCP {
 			return std::move(buffer);
 		}
 	};
+
+	typedef TCPClient<DefaultConfig> DefaultTCPClient;
 }
