@@ -18,9 +18,9 @@ Note: It would be possible to build upon the TCP client to make an FTP/FTPS clie
 
 ### Usage
 
-See smtp_examples.cpp, smtps_examples.cpp, http_examples.cpp, https_examples.cpp for example usage.
+See `smtp_examples.cpp`, `smtps_examples.cpp`, `http_examples.cpp`, `https_examples.cpp` for example usage.
 
-Include the relavent file(s), e.g. simple_client_smtp.hpp for non-encrypted SMTP.
+Include the relavent file(s), e.g. `simple_client_smtp.hpp` for non-encrypted SMTP.
 
 Note that you will need to replace the "To:" parameter with your own email to receive the messages.
 
