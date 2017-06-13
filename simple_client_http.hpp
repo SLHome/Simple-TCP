@@ -32,6 +32,13 @@ public:
 
 namespace SimpleTCP {
 	
+	class DefaultHTTPConfig : public DefaultConfig {
+	public:
+		constexpr std::uint16_t default_port() const noexcept {
+			return 80;
+		}
+	};
+
 	template <typename Client>
 	class HTTPProcessor {
 	public:
@@ -90,9 +97,9 @@ namespace SimpleTCP {
 	public:
 		HTTPProcessor(Client client) :client(client) {}
 
-		HTTPProcessor(const std::string& host_port, config_type config = config_type{}) :client(host_port, 80, std::move(config)) {}
+		HTTPProcessor(const std::string& host_port, config_type config = config_type{}) :client(host_port, std::move(config)) {}
 
-		HTTPProcessor(std::string&& host_port, config_type config = config_type{}) :client(std::move(host_port), 80, std::move(config)) {}
+		HTTPProcessor(std::string&& host_port, config_type config = config_type{}) :client(std::move(host_port), std::move(config)) {}
 
 		std::shared_ptr<Response> request(const std::string& request_type, const std::string& path = "/", const std::string& content = "", const std::map<std::string, std::string>& header = std::map<std::string, std::string>()) {
 			std::string corrected_path = path;
@@ -186,5 +193,5 @@ namespace SimpleTCP {
 	template <typename Config>
 	using HTTPClient = HTTPProcessor<TCPClient<Config>>;
 
-	typedef HTTPClient<DefaultConfig> DefaultHTTPClient;
+	typedef HTTPClient<DefaultHTTPConfig> DefaultHTTPClient;
 }

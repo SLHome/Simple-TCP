@@ -13,7 +13,8 @@
 #include "net_utils.hpp"
 
 namespace SimpleTCP {
-	struct DefaultTransporter {
+	class DefaultTransporter {
+	public:
 		typedef boost::asio::ip::tcp::socket socket_type;
 		template <typename Client>
 		void init(Client&) const {}
@@ -63,15 +64,16 @@ namespace SimpleTCP {
 		}
 	};
 	
+	template <typename Transporter = DefaultTransporter>
 	class DefaultConfig {
 	public:
 		/// Set timeout on requests in seconds. Default value: 0 (no timeout). 
 		constexpr size_t timeout() const noexcept {
-			return 100;
+			return 10;
 		}
 		/// Set connect timeout in seconds. Default value: 0 (Config::timeout is then used instead).
 		constexpr size_t timeout_connect() const noexcept {
-			return 100;
+			return 10;
 		}
 		/// Set proxy server (server:port)
 		constexpr const char* proxy_server() const noexcept {
@@ -80,9 +82,12 @@ namespace SimpleTCP {
 		constexpr bool has_proxy_server() const noexcept {
 			return false;
 		}
-		typedef DefaultTransporter transporter_type;
+		typedef Transporter transporter_type;
 		const transporter_type& get_transporter() const noexcept {
 			return transporter_type{};
+		}
+		constexpr std::uint16_t default_port() const noexcept {
+			return 0;
 		}
 	};
 
@@ -90,7 +95,6 @@ namespace SimpleTCP {
 	template <typename Config = DefaultConfig>
 	class TCPClient {
 		friend class Config::transporter_type;
-
 	public:
 		typedef typename Config::transporter_type transporter_type;
 		typedef typename transporter_type::socket_type socket_type;
@@ -124,13 +128,13 @@ namespace SimpleTCP {
 		}
 
 	public:
-		TCPClient(const std::string& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
-			std::tie(host, port) = parse_host_port(host_port, default_port);
+		TCPClient(const std::string& host_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
+			std::tie(host, port) = parse_host_port(host_port, config.default_port());
 			config.get_transporter().init(*this);
 		}
 
-		TCPClient(std::string&& host_port, std::uint16_t default_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
-			std::tie(host, port) = parse_host_port(std::move(host_port), default_port);
+		TCPClient(std::string&& host_port, Config config = Config{}) :resolver(io_service), config(std::move(config)) {
+			std::tie(host, port) = parse_host_port(std::move(host_port), config.default_port());
 			config.get_transporter().init(*this);
 		}
 
@@ -170,6 +174,45 @@ namespace SimpleTCP {
 			config.get_transporter().connect(*this);
 		}
 
+		template <typename Buffer, typename Socket>
+		void send_noconnect(Buffer&& buffer, Socket& w_socket) {
+
+			boost::asio::deadline_timer timer(io_service);
+			make_and_start_timeout_timer(timer);
+			boost::asio::async_write(w_socket, std::forward<Buffer>(buffer),
+				[this, &timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+				timer.cancel();
+				if (ec) {
+					std::lock_guard<std::mutex> lock(socket_mutex);
+					this->socket = nullptr;
+					throw boost::system::system_error(ec);
+				}
+			});
+			io_service.reset();
+			io_service.run();
+		}
+
+		template <typename Buffer, typename Socket>
+		size_t receive_until_noconnect(Buffer& buffer, const std::string& delim, Socket& w_socket) {
+
+			boost::asio::deadline_timer timer(io_service);
+			make_and_start_timeout_timer(timer);
+			size_t ret = 0;
+			boost::asio::async_read_until(w_socket, buffer, delim,
+				[this, &timer, &ret](const boost::system::error_code& ec, size_t bytes_transferred) {
+				timer.cancel();
+				ret = bytes_transferred;
+				if (ec) {
+					std::lock_guard<std::mutex> lock(socket_mutex);
+					this->socket = nullptr;
+					throw boost::system::system_error(ec);
+				}
+			});
+			io_service.reset();
+			io_service.run();
+			return ret;
+		}
+
 	public:
 		template <typename Buffer>
 		void send(Buffer&& buffer) {
@@ -183,7 +226,7 @@ namespace SimpleTCP {
 				timer.cancel();
 				if (ec) {
 					std::lock_guard<std::mutex> lock(socket_mutex);
-					socket = nullptr;
+					this->socket = nullptr;
 					throw boost::system::system_error(ec);
 				}
 			});
@@ -257,12 +300,12 @@ namespace SimpleTCP {
 			return ret;
 		}
 
-		boost::asio::streambuf receive() {
+		/*boost::asio::streambuf receive() {
 			boost::asio::streambuf buffer;
 			receive(buffer);
 			return std::move(buffer);
-		}
+		}*/
 	};
 
-	typedef TCPClient<DefaultConfig> DefaultTCPClient;
+	typedef TCPClient<DefaultConfig<>> DefaultTCPClient;
 }

@@ -37,7 +37,8 @@ public:
 #endif
 
 namespace SimpleTCP {
-	struct SecureTransporter {
+	class SecureTransporter{
+	public:
 		typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_type;
 		
 		class Response {
@@ -211,9 +212,9 @@ namespace SimpleTCP {
 		}
 	};
 
-	class SecureConfig : public DefaultConfig {
+	template <typename Transporter = SecureTransporter>
+	class SecureConfig : public DefaultConfig<Transporter> {
 	public:
-		typedef SecureTransporter transporter_type;
 		transporter_type transporter;
 		SecureConfig(const SecureConfig&) = default;
 		SecureConfig(SecureConfig&&) = default;
@@ -227,5 +228,5 @@ namespace SimpleTCP {
 		}
 	};
 
-	typedef TCPClient<SecureConfig> SecureTCPClient;
+	typedef TCPClient<SecureConfig<>> SecureTCPClient;
 }
