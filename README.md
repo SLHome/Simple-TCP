@@ -7,13 +7,18 @@ This project was forked from [eidheim/Simple-Web-Server](https://github.com/eidh
 
 Note: It would be possible to build upon the TCP client to make an FTP/FTPS client (feel free to send a PR if you have done that).
 
-### Features (when complete)
+### Features
 
 * Platform independent
 * SMTPS and HTTPS support
+* SMTP authentication with username and password
 * HTTP persistent connection (for HTTP/1.1)
-* Supports chunked transfer encoding
+* HTTP chunked transfer encoding
 * Timeouts
+
+### Planned Features
+
+* SMTP authentication with OAuth
 * HTML emails
 
 ### Usage
@@ -23,6 +28,8 @@ See `smtp_examples.cpp`, `smtps_examples.cpp`, `http_examples.cpp`, `https_examp
 Include the relavent file(s), e.g. `simple_client_smtp.hpp` for non-encrypted SMTP.
 
 Note that you will need to replace the "To:" parameter with your own email to receive the messages.
+
+For SMTPS, you will need a real email account to send from.  Create the `smtp_credentials.txt` file with your own SMTP server, display name, email address, and password.
 
 ### Dependencies
 
