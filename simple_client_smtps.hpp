@@ -4,7 +4,7 @@
 #include "simple_client_smtp.hpp"
 #include "simple_client_tcp_tls.hpp"
 
-#include "crypto.hpp"
+#include "simple_crypto.hpp"
 
 namespace SimpleTCP {
 	
@@ -22,7 +22,7 @@ namespace SimpleTCP {
 		UsernamePasswordAuthAgent(const UsernamePasswordAuthAgent&) = default;
 		UsernamePasswordAuthAgent& operator=(UsernamePasswordAuthAgent&&) = default;
 		UsernamePasswordAuthAgent& operator=(const UsernamePasswordAuthAgent&) = default;
-		UsernamePasswordAuthAgent(const std::string& username, const std::string& password) :username(SimpleWeb::Crypto::Base64::encode(escape(username))), password(SimpleWeb::Crypto::Base64::encode(password)) {}
+		UsernamePasswordAuthAgent(const std::string& username, const std::string& password) :username(SimpleTCP::Crypto::Base64::encode(escape(username))), password(SimpleTCP::Crypto::Base64::encode(password)) {}
 
 
 		template <typename Client, typename Transporter>

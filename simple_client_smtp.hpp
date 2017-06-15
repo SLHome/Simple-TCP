@@ -18,6 +18,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #include "simple_client_tcp.hpp"
 
@@ -193,6 +194,12 @@ namespace SimpleTCP {
 		code = static_cast<SMTPCode>(x);
 		return os;
 	}
+
+	namespace EmailType {
+		struct base_tag {};
+		struct plain_tag :base_tag {};
+		struct html_tag :base_tag {};
+	};
 
 	template <typename Client>
 	class SMTPProcessor {
@@ -441,10 +448,13 @@ namespace SimpleTCP {
 		}
 
 	public:
+
+
 		// note: mailwriter must write a trailing \r\n
+		// also, the caller must guarantee that the mailwriter writes only proper characters fitting into 7 bit encoding
 		//std::void_t<decltype(std::remove_reference_t<TSubjectWriter>::operator()), decltype(std::remove_reference_t<TBodyWriter>::operator())>
-		template <typename TSubjectWriter, typename TBodyWriter, typename TSender, typename... TRecipient>
-		std::void_t<decltype(&std::remove_reference_t<TSubjectWriter>::operator()), decltype(&std::remove_reference_t<TBodyWriter>::operator())> send_mail(TSubjectWriter&& subjectwriter, TBodyWriter&& mailwriter, TSender&& sender, TRecipient&&... recipient) {
+		template <typename TEmailTag, typename TSubjectWriter, typename TBodyWriter, typename TSender, typename... TRecipient>
+		std::enable_if_t<std::is_base_of_v<EmailType::base_tag, TEmailTag>, std::void_t<decltype(&std::remove_reference_t<TSubjectWriter>::operator()), decltype(&std::remove_reference_t<TBodyWriter>::operator())>> send_mail(TEmailTag email_type_tag, TSubjectWriter&& subjectwriter, TBodyWriter&& mailwriter, TSender&& sender, TRecipient&&... recipient) {
 			SMTPCode ret;
 			/*ret = receive_code_from_server();
 			if (ret != SMTPCode::READY) throw std::invalid_argument("Invalid code received (" + to_string(ret) + ").");
@@ -464,6 +474,11 @@ namespace SimpleTCP {
 				write_stream << "\r\n";
 			});
 			send_header("Date", to_timestamp(std::chrono::system_clock::now()));
+			if (std::is_same_v<std::decay_t<TEmailTag>, EmailType::html_tag>) {
+				send_header("MIME-Version", "1.0");
+				send_header("Content-Type", "text/html; charset=\"UTF-8\"");
+				send_header("Content-Transfer-Encoding", "quoted-printable");
+			}
 			send_CRLF();
 			send_data(std::forward<TBodyWriter>(mailwriter));
 			send_string(".");
@@ -491,13 +506,89 @@ namespace SimpleTCP {
 			}, std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
 		}*/
 
-		template <typename TSender, typename... TRecipient>
-		void _send_mail(std::string&& subject, std::string&& body, TSender&& sender, TRecipient&&... recipient) {
+		template <typename TEmailTag, typename TSubject, typename TBody, typename TSender, typename... TRecipient>
+		std::enable_if_t<std::conjunction_v<std::is_base_of<EmailType::base_tag, TEmailTag>, std::is_assignable<std::string, TSubject>, std::is_assignable<std::string, TBody>>> send_mail(TEmailTag email_type_tag, TSubject&& subject, TBody&& body, TSender&& sender, TRecipient&&... recipient) {
+			send_mail([&](std::ostream& write_stream) {
+				write_stream << std::forward<TSubject>(subject);
+			}, [&](std::ostream& write_stream) {
+				if (std::is_same_v<std::decay_t<TEmailTag>, EmailType::html_tag>) {
+					// https://gist.github.com/jprobinson/69a97de73f4a7b0445d2
+					std::string body_str = std::forward<TBody>(body);
+					int curr_line_length = 0;
+					for (auto it = body_str.cbegin(); it != body_str.cend(); ++it) {
+						const char& ch = *it;
+						if (curr_line_length > 72) {
+							// insert '=' if prev char exists and is not a space
+							if (it != body_str.cbegin() && *(it - 1) != ' ') {
+								write_stream << '=';
+							}
+							write_stream << "\r\n";
+							curr_line_length = 0;
+						}
+						if ((ch >= static_cast<char>(0x20)) && (ch <= static_cast<char>(0x7E)) && (ch != '=')) {
+							write_stream << ch;
+							// double escape newline periods
+							// http://tools.ietf.org/html/rfc5321#section-4.5.2
+							if (curr_line_length == 0 && ch == '.') {
+								write_stream << ".";
+								++curr_line_length;
+							}
+						}
+						else
+						{
+							write_stream << '=';
+							write_stream << uppercase << hex << ((static_cast<int>(ch) >> 4) & 0x0F);
+							write_stream << uppercase << hex << (static_cast<int>(ch) & 0x0F);
+							// 2 more chars bc hex and equals
+							curr_line_length += 2;
+						}
+						++curr_line_length;
+					}
+					write_stream << "\r\n";
+				}
+				else {
+					std::string body_str = std::forward<TBody>(body);
+					if (body_str.empty() || body_str.back() != '\n')body_str.push_back('\n');
+					for (auto it = body_str.cbegin(); it != body_str.cend(); ++it) {
+						const char& ch = *it;
+						if (ch == '\n' && (it == body_str.cbegin() || *(it - 1) != '\r')) {
+							write_stream << '\r';
+						}
+						else if (ch == '.' && (it == body_str.cbegin() || *(it - 1) == '\n')) {
+							write_stream << '.';
+						}
+						write_stream << ch;
+					}
+				}
+			}, std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
+		}
+
+		/*template <typename TEmailType, typename TSender, typename... TRecipient>
+		std::enable_if_t<std::is_base_of_v<EmailType::base_tag, TEmailTag>> send_mail(TEmailType email_type, std::string&& subject, std::string&& body, TSender&& sender, TRecipient&&... recipient) {
 			send_mail([&](std::ostream& write_stream) {
 				write_stream << std::move(subject);
 			}, [&](std::ostream& write_stream) {
 				write_stream << std::move(body);
 			}, std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
+		}
+
+		template <typename TEmailType, typename TSender, typename... TRecipient>
+		std::enable_if_t<std::is_base_of_v<EmailType::base_tag, TEmailTag>> send_mail(TEmailType email_type, const std::string& subject, const std::string& body, TSender&& sender, TRecipient&&... recipient) {
+			send_mail([&](std::ostream& write_stream) {
+				write_stream << subject;
+			}, [&](std::ostream& write_stream) {
+				write_stream << body;
+			}, std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
+		}*/
+
+		template <typename TSubjectWriter, typename TBodyWriter, typename TSender, typename... TRecipient>
+		inline std::void_t<decltype(&std::remove_reference_t<TSubjectWriter>::operator()), decltype(&std::remove_reference_t<TBodyWriter>::operator())> send_mail(TSubjectWriter&& subjectwriter, TBodyWriter&& mailwriter, TSender&& sender, TRecipient&&... recipient) {
+			send_mail(EmailType::plain_tag{}, std::forward<TSubjectWriter>(subjectwriter), std::forward<TBodyWriter>(mailwriter), std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
+		}
+
+		template <typename TSubject, typename TBody, typename TSender, typename... TRecipient>
+		inline std::enable_if_t<std::conjunction_v<std::is_assignable<std::string, TSubject>, std::is_assignable<std::string, TBody>>> send_mail(TSubject&& subject, TBody&& body, TSender&& sender, TRecipient&&... recipient) {
+			send_mail(EmailType::plain_tag{}, std::forward<TSubject>(subject), std::forward<TBody>(body), std::forward<TSender>(sender), std::forward<TRecipient>(recipient)...);
 		}
 		
 		

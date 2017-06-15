@@ -41,7 +41,7 @@ int main() {
 		
 		SmtpClient client(server_endpoint, SimpleTCP::SecureSMTPConfig<SimpleTCP::UsernamePasswordAuthAgent>{ SimpleTCP::UsernamePasswordAuthAgent{ email_address,password }, false });
 		// "From: \"Bob Example\" <test@example.com>\r\nTo: Alice Example <recipient@gmail.com>\r\nSubject: Test message\r\n\r\nHello Alice.\r\nThis is a test message with 5 header fields and 4 lines in the message body.\r\nYour friend,\r\nBob\r\n."
-		client._send_mail("Test message", "Hello Alice.\r\nThis is a test message with 5 header fields and 4 lines in the message body.\r\nYour friend,\r\nBob\r\n", SimpleTCP::Recipient(SimpleTCP::RecipientType::FROM, display_name, email_address), SimpleTCP::Recipient(SimpleTCP::RecipientType::TO, "Alice Example", "test@example.com"));
+		client.send_mail("Test message", "Hello Alice.\r\nThis is a test message with 5 header fields and 4 lines in the message body.\r\nYour friend,\r\nBob\r\n.\r\n", SimpleTCP::Recipient(SimpleTCP::RecipientType::FROM, display_name, email_address), SimpleTCP::Recipient(SimpleTCP::RecipientType::TO, "Alice Example", "test@gmail.com"));
 		cerr << "Done Sending." << endl;
 	}
 	catch (boost::system::system_error& e) {
