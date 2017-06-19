@@ -454,7 +454,7 @@ namespace SimpleTCP {
 		// also, the caller must guarantee that the mailwriter writes only proper characters fitting into 7 bit encoding
 		//std::void_t<decltype(std::remove_reference_t<TSubjectWriter>::operator()), decltype(std::remove_reference_t<TBodyWriter>::operator())>
 		template <typename TEmailTag, typename TSubjectWriter, typename TBodyWriter, typename TSender, typename... TRecipient>
-		std::enable_if_t<std::is_base_of_v<EmailType::base_tag, TEmailTag>, std::void_t<decltype(&std::remove_reference_t<TSubjectWriter>::operator()), decltype(&std::remove_reference_t<TBodyWriter>::operator())>> send_mail(TEmailTag email_type_tag, TSubjectWriter&& subjectwriter, TBodyWriter&& mailwriter, TSender&& sender, TRecipient&&... recipient) {
+		std::enable_if_t<std::is_base_of_v<EmailType::base_tag, TEmailTag>, std::void_t<decltype(&std::remove_reference_t<TSubjectWriter>::operator()), decltype(&std::remove_reference_t<TBodyWriter>::operator())>> send_mail(TEmailTag, TSubjectWriter&& subjectwriter, TBodyWriter&& mailwriter, TSender&& sender, TRecipient&&... recipient) {
 			SMTPCode ret;
 			/*ret = receive_code_from_server();
 			if (ret != SMTPCode::READY) throw std::invalid_argument("Invalid code received (" + to_string(ret) + ").");
@@ -474,7 +474,7 @@ namespace SimpleTCP {
 				write_stream << "\r\n";
 			});
 			send_header("Date", to_timestamp(std::chrono::system_clock::now()));
-			if (std::is_same_v<std::decay_t<TEmailTag>, EmailType::html_tag>) {
+			if (std::is_same<std::decay_t<TEmailTag>, EmailType::html_tag>::value) {
 				send_header("MIME-Version", "1.0");
 				send_header("Content-Type", "text/html; charset=\"UTF-8\"");
 				send_header("Content-Transfer-Encoding", "quoted-printable");
@@ -507,11 +507,11 @@ namespace SimpleTCP {
 		}*/
 
 		template <typename TEmailTag, typename TSubject, typename TBody, typename TSender, typename... TRecipient>
-		std::enable_if_t<std::conjunction_v<std::is_base_of<EmailType::base_tag, TEmailTag>, std::is_assignable<std::string, TSubject>, std::is_assignable<std::string, TBody>>> send_mail(TEmailTag email_type_tag, TSubject&& subject, TBody&& body, TSender&& sender, TRecipient&&... recipient) {
-			send_mail([&](std::ostream& write_stream) {
+		std::enable_if_t<std::conjunction_v<std::is_base_of<EmailType::base_tag, TEmailTag>, std::is_assignable<std::string, TSubject>, std::is_assignable<std::string, TBody>>> send_mail(TEmailTag, TSubject&& subject, TBody&& body, TSender&& sender, TRecipient&&... recipient) {
+			send_mail(TEmailTag{}, [&](std::ostream& write_stream) {
 				write_stream << std::forward<TSubject>(subject);
 			}, [&](std::ostream& write_stream) {
-				if (std::is_same_v<std::decay_t<TEmailTag>, EmailType::html_tag>) {
+				if (std::is_same<std::decay_t<TEmailTag>, EmailType::html_tag>::value) {
 					// https://gist.github.com/jprobinson/69a97de73f4a7b0445d2
 					std::string body_str = std::forward<TBody>(body);
 					int curr_line_length = 0;
