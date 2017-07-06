@@ -154,7 +154,7 @@ namespace SimpleTCP {
 	};
 
 
-	std::string escape(const std::string& str) {
+	inline std::string escape(const std::string& str) {
 		std::string ret;
 		for (const char& c : str) {
 			if (c == '\"' || c == '\\') {
@@ -165,7 +165,7 @@ namespace SimpleTCP {
 		return ret;
 	}
 
-	std::string stringify_recipient(const Recipient& recipient) {
+	inline std::string stringify_recipient(const Recipient& recipient) {
 		if (recipient.name.empty()) {
 			return '\"' + recipient.email + '\"';
 		}
@@ -182,13 +182,13 @@ namespace SimpleTCP {
 		LOGIN = 334,
 		DATA = 354
 	};
-	static std::string to_string(const SMTPCode& x) {
+	inline static std::string to_string(const SMTPCode& x) {
 		return std::to_string(static_cast<std::uint16_t>(x));
 	}
-	std::ostream& operator<<(std::ostream& os, const SMTPCode& code) {
+	inline std::ostream& operator<<(std::ostream& os, const SMTPCode& code) {
 		return os << static_cast<std::uint16_t>(code);
 	}
-	std::istream& operator>>(std::istream& os, SMTPCode& code) {
+	inline std::istream& operator>>(std::istream& os, SMTPCode& code) {
 		std::uint16_t x;
 		os >> x;
 		code = static_cast<SMTPCode>(x);
